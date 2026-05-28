@@ -1,0 +1,1050 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Markdown 文档查看器</title>
+<style>
+    :root{--bg:#f4f6f8;--surface:#fff;--border:#e2e8f0;--text:#1e293b;--muted:#64748b;--accent:#2563eb;--accent-hover:#1d4ed8;--sidebar-w:280px;--toolbar-h:52px;--radius:8px;--shadow:0 1px 3px rgba(15,23,42,.08)}
+    *{box-sizing:border-box}html,body{margin:0;height:100%;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI","PingFang SC","Microsoft YaHei",sans-serif;background:var(--bg);color:var(--text)}
+    .app{display:flex;flex-direction:column;height:100vh;overflow:hidden}
+    .toolbar{height:var(--toolbar-h);flex-shrink:0;display:flex;align-items:center;gap:10px;padding:0 16px;background:var(--surface);border-bottom:1px solid var(--border);box-shadow:var(--shadow);z-index:10}
+    .toolbar-title{font-size:15px;font-weight:600;white-space:nowrap}
+    .toolbar-filename{flex:1;font-size:13px;color:var(--muted);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;min-width:0}
+    .btn{display:inline-flex;align-items:center;gap:6px;padding:7px 14px;font-size:13px;font-weight:500;border:1px solid var(--border);border-radius:var(--radius);background:var(--surface);color:var(--text);cursor:pointer;white-space:nowrap}
+    .btn:hover{background:#f8fafc;border-color:#cbd5e1}.btn-primary{background:var(--accent);border-color:var(--accent);color:#fff}.btn-primary:hover{background:var(--accent-hover);border-color:var(--accent-hover)}
+    .btn svg{width:15px;height:15px}.btn:disabled{opacity:.45;cursor:not-allowed}
+    .main{flex:1;display:flex;overflow:hidden;min-height:0}
+    .sidebar{width:var(--sidebar-w);flex-shrink:0;background:var(--surface);border-right:1px solid var(--border);display:flex;flex-direction:column;overflow:hidden}
+    .sidebar-header{padding:14px 16px 10px;font-size:12px;font-weight:600;color:var(--muted);border-bottom:1px solid var(--border)}
+    .toc{flex:1;overflow-y:auto;padding:8px 0 16px}.toc-empty{padding:16px;font-size:13px;color:var(--muted);line-height:1.6}
+    .toc-list{list-style:none;margin:0;padding:0}.toc-list .toc-list{padding-left:12px}
+    .toc-item a{display:block;padding:5px 16px;font-size:13px;line-height:1.45;color:var(--muted);text-decoration:none;border-left:2px solid transparent}
+    .toc-item a:hover{color:var(--accent);background:#f1f5f9}.toc-item a.active{color:var(--accent);font-weight:500;border-left-color:var(--accent);background:#eff6ff}
+    .toc-item[data-level="1"]>a{font-weight:600;color:var(--text)}.toc-item[data-level="3"]>a{padding-left:24px;font-size:12.5px}.toc-item[data-level="4"]>a{padding-left:32px;font-size:12px}
+    .content-wrap{flex:1;overflow-y:auto;min-width:0}.content{max-width:900px;margin:0 auto;padding:32px 40px 64px;background:var(--surface);min-height:100%;box-shadow:var(--shadow)}
+    .welcome{text-align:center;padding:80px 24px;color:var(--muted)}.welcome h2{font-size:22px;color:var(--text);margin:0 0 12px}.welcome p{font-size:15px;line-height:1.7;margin:0 0 24px}
+    .markdown-body h1{font-size:32px;margin:0 0 24px;padding-bottom:12px;border-bottom:1px solid var(--border)}
+    .markdown-body h2{font-size:24px;margin:40px 0 16px;padding-bottom:8px;border-bottom:1px solid var(--border)}
+    .markdown-body h3{font-size:20px;margin:28px 0 12px}.markdown-body h4,.markdown-body h5,.markdown-body h6{font-size:16px;margin:20px 0 10px}
+    .markdown-body p{font-size:16px;line-height:1.75;margin:0 0 16px}.markdown-body ul,.markdown-body ol{margin:0 0 16px;padding-left:24px;line-height:1.75}
+    .markdown-body blockquote{margin:0 0 16px;padding:12px 16px;border-left:4px solid var(--accent);background:#f8fafc;color:var(--muted)}
+    .markdown-body code{font-family:Consolas,monospace;font-size:.9em;background:#f1f5f9;padding:2px 6px;border-radius:4px}
+    .markdown-body pre{margin:0 0 16px;padding:16px;background:#0f172a;color:#e2e8f0;border-radius:var(--radius);overflow-x:auto;font-size:13px}
+    .markdown-body pre.mermaid{margin:0;padding:0;background:transparent!important;color:var(--text);overflow:visible;border-radius:0}
+    .markdown-body pre code{background:none;padding:0;color:inherit}
+    .markdown-body table{width:100%;border-collapse:collapse;margin:0 0 16px;font-size:14px}
+    .markdown-body th,.markdown-body td{border:1px solid var(--border);padding:8px 12px}.markdown-body th{background:#f8fafc;font-weight:600}
+    .markdown-body img{max-width:100%;height:auto;border-radius:var(--radius)}.markdown-body a{color:var(--accent);text-decoration:none}.markdown-body a:hover{text-decoration:underline}
+    .markdown-body hr{border:none;border-top:1px solid var(--border);margin:32px 0}
+    .mermaid-block{margin:20px 0 24px;padding:16px;background:#fff;border:1px solid var(--border);border-radius:var(--radius);overflow-x:auto;cursor:zoom-in;position:relative}
+    .mermaid-block:hover{border-color:#93c5fd;box-shadow:0 0 0 3px rgba(37,99,235,.1)}
+    .mermaid-block::after{content:"点击放大";position:absolute;top:8px;right:48px;font-size:11px;color:var(--muted);background:rgba(255,255,255,.9);padding:2px 8px;border-radius:4px;pointer-events:none;opacity:0;transition:opacity .15s}
+    .mermaid-block:hover::after{opacity:1}.mermaid-block .mermaid{display:flex;justify-content:center}.mermaid-block svg{max-width:100%;height:auto}
+    .mermaid-btn-download{position:absolute;top:8px;right:8px;z-index:3;width:32px;height:32px;padding:0;display:inline-flex;align-items:center;justify-content:center;border:1px solid var(--border);border-radius:6px;background:rgba(255,255,255,.96);color:var(--muted);cursor:pointer;box-shadow:0 1px 2px rgba(15,23,42,.06);transition:color .15s,border-color .15s,background .15s}
+    .mermaid-btn-download:hover{color:var(--accent);border-color:#93c5fd;background:#eff6ff}
+    .mermaid-btn-download:disabled{opacity:.5;cursor:wait}
+    .mermaid-btn-download svg{width:16px;height:16px;pointer-events:none}
+    .lightbox{display:none;position:fixed;inset:0;z-index:1000;background:rgba(15,23,42,.75);align-items:center;justify-content:center;padding:16px;cursor:zoom-out;overscroll-behavior:contain}
+    .lightbox.open{display:flex}
+    .lightbox-inner{background:#fff;border-radius:12px;padding:44px 16px 12px;max-width:96vw;max-height:92vh;width:min(96vw,1200px);display:flex;flex-direction:column;overflow:hidden;cursor:default;box-shadow:0 25px 50px rgba(0,0,0,.25);position:relative}
+    .lightbox-close{position:absolute;top:10px;right:10px;width:32px;height:32px;border:none;border-radius:6px;background:#f1f5f9;font-size:18px;cursor:pointer;z-index:2}
+    .lightbox-close:hover{background:#e2e8f0}
+    .lightbox-viewport{flex:1;position:relative;overflow:hidden;min-height:240px;max-height:calc(92vh - 88px);border:1px solid var(--border);border-radius:8px;touch-action:none;cursor:grab}
+    .lightbox-viewport.grabbing{cursor:grabbing}
+    .lightbox-stage{transform-origin:0 0;display:inline-block;will-change:transform;overflow:visible}
+    .lightbox-stage svg{display:block;max-width:none;overflow:visible!important}
+    .lightbox-stage foreignObject,.lightbox-stage foreignObject *{overflow:visible!important}
+    .lightbox-stage foreignObject{display:block}
+    .lightbox-stage foreignObject>div,
+    .lightbox-stage foreignObject>span{
+      display:flex!important;align-items:center!important;justify-content:center!important;
+      width:100%!important;height:100%!important;box-sizing:border-box!important;margin:0!important;padding:0!important
+    }
+    .lightbox-stage foreignObject .nodeLabel,.lightbox-stage foreignObject .edgeLabel,
+    .lightbox-stage foreignObject span,.lightbox-stage foreignObject p{
+      display:flex!important;align-items:center!important;justify-content:center!important;
+      width:100%!important;height:100%!important;text-align:center!important;
+      margin:0!important;box-sizing:border-box!important;line-height:1.35!important
+    }
+    .lightbox-stage [clip-path]{clip-path:none!important}
+    .lightbox-footer{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-top:10px;padding:0 4px}
+    .lightbox-hint{font-size:12px;color:var(--muted)}
+    .lightbox-zoom{font-size:12px;color:var(--muted);font-variant-numeric:tabular-nums;min-width:48px;text-align:right}
+    body.lightbox-open,body.lightbox-open .content-wrap{overflow:hidden!important}
+    .toast{position:fixed;bottom:24px;left:50%;transform:translateX(-50%) translateY(80px);background:#1e293b;color:#fff;padding:10px 20px;border-radius:var(--radius);font-size:13px;opacity:0;transition:transform .25s,opacity .25s;z-index:2000}
+    .toast.show{transform:translateX(-50%) translateY(0);opacity:1}
+    .guide-panel{display:none;position:fixed;top:var(--toolbar-h);right:0;bottom:0;width:min(420px,92vw);z-index:30;background:var(--surface);border-left:1px solid var(--border);box-shadow:-4px 0 24px rgba(15,23,42,.12);flex-direction:column;overflow:hidden}
+    .guide-panel.open{display:flex}
+    .guide-header{display:flex;align-items:center;justify-content:space-between;padding:14px 16px;border-bottom:1px solid var(--border);flex-shrink:0}
+    .guide-header h3{margin:0;font-size:15px}
+    .guide-body{flex:1;overflow-y:auto;padding:16px 18px 24px;font-size:13px;line-height:1.65;color:var(--text)}
+    .guide-body h4{font-size:13px;margin:20px 0 8px;color:var(--text)}.guide-body h4:first-child{margin-top:0}
+    .guide-body p{margin:0 0 10px;color:var(--muted)}.guide-body ul{margin:0 0 12px;padding-left:18px;color:var(--muted)}
+    .guide-body table{width:100%;border-collapse:collapse;margin:0 0 14px;font-size:12px}
+    .guide-body th,.guide-body td{border:1px solid var(--border);padding:6px 8px;text-align:left}
+    .guide-body th{background:#f8fafc}
+    .guide-swatch{display:inline-block;width:12px;height:12px;border-radius:3px;vertical-align:-2px;margin-right:4px;border:1px solid rgba(0,0,0,.08)}
+    .guide-pre{margin:0 0 12px;padding:12px;background:#0f172a;color:#e2e8f0;border-radius:var(--radius);font-size:11px;line-height:1.5;overflow-x:auto;white-space:pre;font-family:Consolas,monospace}
+    .guide-actions{display:flex;gap:8px;flex-wrap:wrap;margin:12px 0 16px}
+    .color-main{background:#DBEAFE;border-color:#2563EB}.color-timeout{background:#FFEDD5;border-color:#EA580C}
+    .color-error{background:#FEE2E2;border-color:#DC2626}.color-normal{background:#F1F5F9;border-color:#64748B}.color-alt{background:#EDE9FE;border-color:#7C3AED}
+    .link-main{background:#2563EB}.link-timeout{background:#EA580C}.link-error{background:#DC2626}.link-normal{background:#64748B}.link-alt{background:#7C3AED}
+    .loading-overlay{display:none;position:fixed;inset:0;z-index:500;background:rgba(255,255,255,.6);align-items:center;justify-content:center}.loading-overlay.show{display:flex}
+    .spinner{width:36px;height:36px;border:3px solid var(--border);border-top-color:var(--accent);border-radius:50%;animation:spin .7s linear infinite}
+    @keyframes spin{to{transform:rotate(360deg)}}
+    @media(max-width:768px){.sidebar{position:fixed;left:0;top:var(--toolbar-h);bottom:0;z-index:20;transform:translateX(-100%);transition:transform .25s}.sidebar.open{transform:translateX(0)}.content{padding:20px 18px 48px}.toolbar-title{display:none}}
+    #file-input{display:none}
+  </style>
+</head>
+<body>
+  <div class="app" id="app">
+    <header class="toolbar">
+      <span class="toolbar-title">MD 查看器</span>
+      <button class="btn btn-primary" id="btn-open" type="button" title="打开 Markdown 文件">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+        打开文件
+      </button>
+      <button class="btn" id="btn-refresh" type="button" title="刷新文档内容" disabled>
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/></svg>
+        刷新
+      </button>
+      <button class="btn" id="btn-toc-toggle" type="button" title="切换目录" style="display:none">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="18" x2="21" y2="18"/></svg>
+        目录
+      </button>
+      <button class="btn" id="btn-mermaid-guide" type="button" title="Mermaid flowchart 规范（PRD）">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4M12 8h.01"/></svg>
+        流程图规范
+      </button>
+      <span class="toolbar-filename" id="filename">未加载文档</span>
+    </header>
+    <div class="main">
+      <aside class="sidebar" id="sidebar">
+        <div class="sidebar-header">文档目录</div>
+        <nav class="toc" id="toc"><div class="toc-empty">打开 Markdown 文件后，此处显示标题目录树。</div></nav>
+      </aside>
+      <main class="content-wrap" id="content-wrap">
+        <article class="content">
+          <div class="welcome" id="welcome">
+            <h2>Markdown 文档查看器</h2>
+            <p>支持标题目录树、Mermaid flowchart（PRD 节点/连线配色、防重叠）与点击放大。<br>双击本 HTML 打开，点击「打开文件」或拖入 .md 即可查看。<br>在外部编辑器修改后，请用「打开文件」重新授权同一文件，再点「刷新」即可看到最新内容。</p>
+            <button class="btn btn-primary" id="btn-open-welcome" type="button">选择 Markdown 文件</button>
+          </div>
+          <div class="markdown-body" id="markdown-body" hidden></div>
+        </article>
+      </main>
+    </div>
+  </div>
+  <div class="lightbox" id="lightbox">
+    <div class="lightbox-inner" id="lightbox-inner">
+      <button class="lightbox-close" id="lightbox-close" type="button" aria-label="关闭">&times;</button>
+      <div class="lightbox-viewport" id="lightbox-viewport"><div class="lightbox-stage" id="lightbox-stage"></div></div>
+      <div class="lightbox-footer"><div class="lightbox-hint">滚轮缩放 · 拖拽平移 · 点击背景或 Esc 关闭</div><div class="lightbox-zoom" id="lightbox-zoom">100%</div></div>
+    </div>
+  </div>
+
+  <aside class="guide-panel" id="mermaid-guide" aria-label="Mermaid flowchart 规范（PRD）">
+    <div class="guide-header">
+      <h3>Mermaid flowchart 规范（PRD）</h3>
+      <button class="btn" id="btn-guide-close" type="button" aria-label="关闭">关闭</button>
+    </div>
+    <div class="guide-body">
+      <p>与 <code>pm-prd-writer/references/mermaid-flowchart-preset.md</code> 一致。本查看器默认按下列配置渲染；文档内 <code>%%{init:...}%%</code> 可覆盖。</p>
+      <div class="guide-actions"><button class="btn btn-primary" id="btn-copy-preset" type="button">复制流程图模板</button></div>
+      <h4>节点配色 classDef</h4>
+      <table><thead><tr><th>class</th><th>语义</th><th>填充 / 描边</th></tr></thead><tbody>
+        <tr><td><code>main</code></td><td>主路径</td><td><span class="guide-swatch color-main"></span>#DBEAFE / #2563EB</td></tr>
+        <tr><td><code>timeout</code></td><td>超时/预警</td><td><span class="guide-swatch color-timeout"></span>#FFEDD5 / #EA580C</td></tr>
+        <tr><td><code>error</code></td><td>异常/阻断</td><td><span class="guide-swatch color-error"></span>#FEE2E2 / #DC2626</td></tr>
+        <tr><td><code>normal</code></td><td>常规分支</td><td><span class="guide-swatch color-normal"></span>#F1F5F9 / #64748B</td></tr>
+      </tbody></table>
+      <h4>连线配色 linkStyle（必写时）</h4>
+      <ul><li>同一节点 ≥2 条出线 或 ≥2 条线汇入同一节点</li><li>预览中连线重叠、难以区分走向</li></ul>
+      <table><thead><tr><th>语义</th><th>描边色</th></tr></thead><tbody>
+        <tr><td>主路径</td><td><span class="guide-swatch link-main"></span><code>#2563EB</code></td></tr>
+        <tr><td>超时/预警</td><td><span class="guide-swatch link-timeout"></span><code>#EA580C</code></td></tr>
+        <tr><td>异常/阻断</td><td><span class="guide-swatch link-error"></span><code>#DC2626</code></td></tr>
+        <tr><td>常规分支</td><td><span class="guide-swatch link-normal"></span><code>#64748B</code></td></tr>
+        <tr><td>同语义区分</td><td><span class="guide-swatch link-alt"></span><code>#7C3AED</code></td></tr>
+      </tbody></table>
+      <p><code>linkStyle N</code>的 N 从 0 起，按图中 --> 自上而下顺序编号；写在所有连线之后。</p>
+      <h4>写作层优化（连线乱时优先）</h4>
+      <ul>
+        <li><strong>linkStyle</strong>：多入/多出/重叠必换色（蓝橙红灰紫）</li>
+        <li><strong>汇合节点</strong>：多线先汇到 <code>G[汇合]</code> 再往下</li>
+        <li><strong>拆图</strong>：节点 &gt;12 或仍交叉 → 主流程 / 异常 / 重试分图</li>
+        <li><strong>subgraph</strong>：重试环、异常处理分区；仍乱则拆第二张</li>
+        <li><strong>状态机</strong>：用 <code>stateDiagram-v2</code>，勿用 flowchart 画大量回环</li>
+        <li><strong>禁止</strong>：同对节点 <code>A→B</code> 与 <code>B→A</code>；无标签往返线过多</li>
+      </ul>
+      <h4>防重叠（必守）</h4>
+      <ul>
+        <li><code>init</code>：<code>nodeSpacing: 60</code>、<code>rankSpacing: 70</code>、<code>curve: basis</code>；单图可用 <code>%%{init:...}%%</code> 覆盖</li>
+        <li>单节点文案 ≤12 字；边标签 ≤6 字；多分支用 <code>flowchart TD</code></li>
+        <li>回环优先经中间节点；仍乱则拆「重试子流程」图</li>
+      </ul>
+      <h4>默认 init（查看器全局）</h4>
+      <pre class="guide-pre" id="guide-init-snippet">theme: base, background: #ffffff
+flowchart: htmlLabels, curve basis, padding 20
+nodeSpacing: 60, rankSpacing: 70, diagramPadding: 12</pre>
+    </div>
+  </aside>
+  <div class="loading-overlay" id="loading"><div class="spinner"></div></div>
+  <div class="toast" id="toast"></div>
+  <input type="file" id="file-input" accept=".md,.markdown,text/markdown">
+
+<script src="libs/marked.min.js"></script>
+<script src="libs/mermaid.min.js"></script>
+<script>
+(function () {
+    const marked = window.marked;
+    const mermaid = window.mermaid;
+
+    if (!marked || !mermaid) {
+      document.body.innerHTML = '<div style="padding:40px;font-family:sans-serif;max-width:520px;margin:0 auto">' +
+        '<h2>依赖加载失败</h2><p>请确认 <code>libs/marked.min.js</code> 与 <code>libs/mermaid.min.js</code> 与本 HTML 位于同一目录下，或通过本地 HTTP 服务打开（勿移动单独 HTML 文件）。</p></div>';
+      return;
+    }
+
+    function withTimeout(promise, ms, message) {
+      return Promise.race([
+        promise,
+        new Promise(function (_, reject) {
+          setTimeout(function () { reject(new Error(message)); }, ms);
+        })
+      ]);
+    }
+
+    /** PRD flowchart 默认配置（与 pm-prd-writer mermaid-flowchart-preset 对齐） */
+    const MERMAID_FLOWCHART_PRESET = {
+      theme: 'base',
+      securityLevel: 'loose',
+      startOnLoad: false,
+      themeVariables: {
+        fontSize: '14px',
+        fontFamily: '-apple-system, BlinkMacSystemFont, "PingFang SC", "Microsoft YaHei", sans-serif',
+        background: '#ffffff',
+        mainBkg: '#DBEAFE',
+        primaryColor: '#DBEAFE',
+        primaryTextColor: '#1E3A8A',
+        primaryBorderColor: '#2563EB',
+        secondaryColor: '#F1F5F9',
+        tertiaryColor: '#ffffff',
+        lineColor: '#64748B',
+        textColor: '#1e293b',
+        clusterBkg: '#ffffff',
+        edgeLabelBackground: '#ffffff',
+        nodeBorder: '#2563EB'
+      },
+      flowchart: {
+        htmlLabels: true,
+        curve: 'basis',
+        padding: 20,
+        nodeSpacing: 60,
+        rankSpacing: 70,
+        diagramPadding: 12,
+        useMaxWidth: true
+      }
+    };
+    mermaid.initialize(MERMAID_FLOWCHART_PRESET);
+
+    /** 可复制到 Markdown 的 flowchart 模板 */
+    const FLOWCHART_TEMPLATE = `%%{init: {'theme':'base','flowchart':{'htmlLabels':true,'curve':'basis','padding':20,'nodeSpacing':60,'rankSpacing':70,'diagramPadding':12,'useMaxWidth':true},'themeVariables':{'fontSize':'14px','background':'#ffffff','lineColor':'#64748B'}}}%%
+flowchart TD
+    A[主路径步骤] --> B{判断}
+    B -->|是| C[继续主路径]
+    B -->|否| D[常规分支]
+    B -->|超时/预警| E[超时处理]
+    B -->|异常/阻断| F[异常处理]
+    C --> G[汇合节点]
+    D --> G
+
+    class A,C,G main
+    class B,D normal
+    class E timeout
+    class F error
+
+    classDef main fill:#DBEAFE,stroke:#2563EB,color:#1E3A8A,stroke-width:2px
+    classDef timeout fill:#FFEDD5,stroke:#EA580C,color:#9A3412,stroke-width:2px
+    classDef error fill:#FEE2E2,stroke:#DC2626,color:#991B1B,stroke-width:2px
+    classDef normal fill:#F1F5F9,stroke:#64748B,color:#334155,stroke-width:1px
+
+    linkStyle 0 stroke:#2563EB,stroke-width:2px
+    linkStyle 1 stroke:#2563EB,stroke-width:2px
+    linkStyle 2 stroke:#64748B,stroke-width:2px
+    linkStyle 3 stroke:#EA580C,stroke-width:2px
+    linkStyle 4 stroke:#DC2626,stroke-width:2px
+    linkStyle 5 stroke:#2563EB,stroke-width:2px
+    linkStyle 6 stroke:#7C3AED,stroke-width:2px`;
+
+    /** 渲染后检查 flowchart 写作规范（仅提示，不阻断） */
+    function lintMermaidFlowchart(block, index) {
+      const pre = block.querySelector('pre.mermaid');
+      if (!pre) return;
+      const src = (pre.textContent || '').trim();
+      if (!/^flowchart\s/i.test(src) && !/^graph\s/i.test(src)) return;
+      const label = '流程图 ' + (index + 1);
+      const hints = [];
+      const edges = (src.match(/-->/g) || []).length;
+      const hasLinkStyle = /linkStyle\s+\d+/i.test(src);
+      const outCount = {};
+      const inCount = {};
+      const edgePairs = {};
+      src.split('\n').forEach(function(line) {
+        const m = line.match(/(\w+)\s*-->/);
+        if (!m) return;
+        const from = m[1];
+        outCount[from] = (outCount[from] || 0) + 1;
+        const toM = line.match(/-->\s*\|?[^|]*\|?\s*(\w+)/);
+        if (toM) {
+          const to = toM[1];
+          inCount[to] = (inCount[to] || 0) + 1;
+          const key = from + '\0' + to;
+          const rev = to + '\0' + from;
+          if (edgePairs[rev]) hints.push('存在双向直连，建议改单向环或 stateDiagram-v2');
+          edgePairs[key] = true;
+        }
+      });
+      const needLinkStyle = Object.values(outCount).some(function(n) { return n >= 2; }) ||
+        Object.values(inCount).some(function(n) { return n >= 2; });
+      if (needLinkStyle && !hasLinkStyle) hints.push('多入/多出建议 linkStyle 换色');
+      const nodeIds = Object.keys(Object.assign({}, outCount, inCount));
+      if (nodeIds.length > 12) hints.push('节点超过 12 个，建议拆图');
+      if (hints.length) {
+        const msg = label + '：' + [...new Set(hints)].join('；');
+        console.warn('[md-viewer] ' + msg);
+        return msg;
+      }
+      return null;
+    }
+
+    const state = { sourceType: null, file: null, fileHandle: null, url: null, displayName: '', headingCounter: 0 };
+    const zoomState = { scale: 1, x: 0, y: 0 };
+  let panState = null;
+
+    const els = {
+      app: document.getElementById('app'),
+      fileInput: document.getElementById('file-input'), btnOpen: document.getElementById('btn-open'),
+      btnOpenWelcome: document.getElementById('btn-open-welcome'), btnRefresh: document.getElementById('btn-refresh'),
+      btnTocToggle: document.getElementById('btn-toc-toggle'), filename: document.getElementById('filename'),
+      toc: document.getElementById('toc'), sidebar: document.getElementById('sidebar'), welcome: document.getElementById('welcome'),
+      markdownBody: document.getElementById('markdown-body'), contentWrap: document.getElementById('content-wrap'),
+      lightbox: document.getElementById('lightbox'), lightboxInner: document.getElementById('lightbox-inner'),
+      lightboxViewport: document.getElementById('lightbox-viewport'), lightboxStage: document.getElementById('lightbox-stage'),
+      lightboxZoom: document.getElementById('lightbox-zoom'),       lightboxClose: document.getElementById('lightbox-close'),
+      loading: document.getElementById('loading'), toast: document.getElementById('toast'),
+      mermaidGuide: document.getElementById('mermaid-guide'),
+      btnMermaidGuide: document.getElementById('btn-mermaid-guide'),
+      btnGuideClose: document.getElementById('btn-guide-close'),
+      btnCopyPreset: document.getElementById('btn-copy-preset')
+    };
+
+    const renderer = new marked.Renderer();
+    renderer.heading = function(text, level) {
+      state.headingCounter += 1;
+      const id = 'heading-' + state.headingCounter;
+      return '<h' + level + ' id="' + id + '">' + text + '</h' + level + '>';
+    };
+    renderer.code = function(code, infostring) {
+      const lang = (infostring || '').trim().toLowerCase();
+      if (lang === 'mermaid') {
+        const escaped = code.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+        return '<div class="mermaid-block" data-zoomable tabindex="0" role="button"><pre class="mermaid">' + escaped + '</pre></div>';
+      }
+      const escaped = code.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+      return '<pre><code' + (lang ? ' class="language-' + lang + '"' : '') + '>' + escaped + '</code></pre>';
+    };
+    marked.setOptions({ renderer, gfm: true, breaks: false, headerIds: false, mangle: false });
+
+    function showToast(msg) {
+      els.toast.textContent = msg;
+      els.toast.classList.add('show');
+      clearTimeout(showToast._t);
+      showToast._t = setTimeout(() => els.toast.classList.remove('show'), 2600);
+    }
+    function setLoading(on) { els.loading.classList.toggle('show', on); }
+    function setSourceReady(name) {
+      els.filename.textContent = name || '\u672a\u52a0\u8f7d\u6587\u6863';
+      els.btnRefresh.disabled = !state.sourceType;
+    }
+
+    function getSvgNaturalSize(svg, fallbackW, fallbackH) {
+      const rect = svg.getBoundingClientRect();
+      const attrW = parseFloat(svg.getAttribute('width'));
+      const attrH = parseFloat(svg.getAttribute('height'));
+      let w = rect.width || attrW || fallbackW || 0;
+      let h = rect.height || attrH || fallbackH || 0;
+      if ((!w || !h) && svg.viewBox && svg.viewBox.baseVal) {
+        w = w || svg.viewBox.baseVal.width;
+        h = h || svg.viewBox.baseVal.height;
+      }
+      if (!w || !h) {
+        try {
+          const box = svg.getBBox();
+          w = w || box.width;
+          h = h || box.height;
+        } catch (e) { /* svg may not be laid out yet */ }
+      }
+      return { w: Math.max(w || 800, 1), h: Math.max(h || 600, 1) };
+    }
+
+    function escapeRegExp(str) {
+      return str.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    }
+
+    function remapMermaidStyles(root, oldId, newId) {
+      if (!oldId || oldId === newId) return;
+      const replaceId = function(text) { return text.split(oldId).join(newId); };
+      root.querySelectorAll('style').forEach(function(styleEl) {
+        styleEl.textContent = replaceId(styleEl.textContent);
+      });
+      document.querySelectorAll('style').forEach(function(styleEl) {
+        if (styleEl.textContent.indexOf(oldId) === -1) return;
+        var scoped = document.createElement('style');
+        scoped.textContent = replaceId(styleEl.textContent);
+        root.insertBefore(scoped, root.firstChild);
+      });
+    }
+
+    var SVG_STYLE_PROPS = [
+      'fill', 'stroke', 'stroke-width', 'stroke-dasharray', 'stroke-linecap', 'stroke-linejoin',
+      'color', 'background-color', 'opacity'
+    ];
+
+    var SVG_ATTRS = ['fill', 'stroke', 'stroke-width', 'stroke-dasharray', 'opacity'];
+
+    function syncInlineStyles(srcEl, dstEl) {
+      if (!srcEl || !dstEl) return;
+      var srcAll = [srcEl].concat(Array.prototype.slice.call(srcEl.querySelectorAll('*')));
+      var dstAll = [dstEl].concat(Array.prototype.slice.call(dstEl.querySelectorAll('*')));
+      var len = Math.min(srcAll.length, dstAll.length);
+      for (var i = 0; i < len; i++) {
+        var src = srcAll[i];
+        var dst = dstAll[i];
+        if (!src || !dst || src.nodeType !== 1 || dst.nodeType !== 1) continue;
+        var cs = window.getComputedStyle(src);
+        SVG_STYLE_PROPS.forEach(function(prop) {
+          var val = cs.getPropertyValue(prop);
+          if (!val || val === 'none' || val === 'normal') return;
+          if ((prop === 'fill' || prop === 'stroke') && (val === 'rgba(0, 0, 0, 0)' || val === 'transparent')) return;
+          dst.style.setProperty(prop, val);
+        });
+        SVG_ATTRS.forEach(function(attr) {
+          if (src.hasAttribute(attr)) dst.setAttribute(attr, src.getAttribute(attr));
+        });
+      }
+    }
+
+    function getDiagramBackground(sourceSvg, block) {
+      var svgRect = sourceSvg.getBoundingClientRect();
+      var svgW = sourceSvg.viewBox && sourceSvg.viewBox.baseVal
+        ? sourceSvg.viewBox.baseVal.width
+        : svgRect.width;
+      var rects = sourceSvg.querySelectorAll('rect');
+      for (var i = 0; i < rects.length; i++) {
+        var rect = rects[i];
+        var rw = parseFloat(rect.getAttribute('width') || 0);
+        var rh = parseFloat(rect.getAttribute('height') || 0);
+        if (rw >= svgW * 0.85 && rh > 0) {
+          var fill = rect.getAttribute('fill') || window.getComputedStyle(rect).fill;
+          if (fill && fill !== 'none' && fill !== 'transparent') return fill;
+        }
+      }
+      var svgBg = window.getComputedStyle(sourceSvg).backgroundColor;
+      if (svgBg && svgBg !== 'rgba(0, 0, 0, 0)' && svgBg !== 'transparent') return svgBg;
+      var blockBg = window.getComputedStyle(block).backgroundColor;
+      if (blockBg && blockBg !== 'rgba(0, 0, 0, 0)') return blockBg;
+      return '#ffffff';
+    }
+
+    function getNearestHeadingTitle(block) {
+      var el = block.previousElementSibling;
+      while (el) {
+        if (/^H[1-6]$/i.test(el.tagName)) return el.textContent.trim();
+        el = el.previousElementSibling;
+      }
+      return '';
+    }
+
+    function sanitizePngFilename(name) {
+      return (name || '').trim().replace(/[\\/:*?"<>|]/g, '_').replace(/\s+/g, ' ').slice(0, 120);
+    }
+
+    function uniquePngFilename(title, index, titleCounts) {
+      var base = sanitizePngFilename(title) || ('流程图-' + (index + 1));
+      var n = (titleCounts[base] = (titleCounts[base] || 0) + 1);
+      return (n === 1 ? base : base + '-' + n) + '.png';
+    }
+
+    function buildExportSvg(svg, block) {
+      var layout = getSvgLayoutSize(svg);
+      var w = layout.w;
+      var h = layout.h;
+      var wrap = document.createElement('div');
+      var clone = svg.cloneNode(true);
+      wrap.appendChild(clone);
+      var oldId = svg.id || '';
+      var newId = oldId ? ('export-' + oldId + '-' + Date.now()) : ('export-mermaid-' + Date.now());
+      clone.id = newId;
+      if (oldId) remapMermaidStyles(wrap, oldId, newId);
+      syncInlineStyles(svg, clone);
+      syncForeignObjectLayout(svg, clone);
+      clone.querySelectorAll('[clip-path]').forEach(function(el) { el.removeAttribute('clip-path'); });
+      clone.setAttribute('xmlns', 'http://www.w3.org/2000/svg');
+      if (layout.viewBox) clone.setAttribute('viewBox', layout.viewBox);
+      clone.setAttribute('width', String(w));
+      clone.setAttribute('height', String(h));
+      var bg = getDiagramBackground(svg, block) || '#ffffff';
+      var pad = 12;
+      var exportW = w + pad * 2;
+      var exportH = h + pad * 2;
+      var outer = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+      outer.setAttribute('xmlns', 'http://www.w3.org/2000/svg');
+      outer.setAttribute('width', String(exportW));
+      outer.setAttribute('height', String(exportH));
+      outer.setAttribute('viewBox', '0 0 ' + exportW + ' ' + exportH);
+      wrap.querySelectorAll('style').forEach(function(st) {
+        outer.insertBefore(st.cloneNode(true), outer.firstChild);
+      });
+      var bgRect = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
+      bgRect.setAttribute('width', String(exportW));
+      bgRect.setAttribute('height', String(exportH));
+      bgRect.setAttribute('fill', bg);
+      outer.appendChild(bgRect);
+      var g = document.createElementNS('http://www.w3.org/2000/svg', 'g');
+      g.setAttribute('transform', 'translate(' + pad + ',' + pad + ')');
+      g.appendChild(clone);
+      outer.appendChild(g);
+      clone.querySelectorAll('foreignObject').forEach(function(fo) {
+        fo.setAttribute('xmlns', 'http://www.w3.org/1999/xhtml');
+        fo.querySelectorAll('div, span').forEach(function(node) {
+          if (!node.getAttribute('xmlns')) node.setAttribute('xmlns', 'http://www.w3.org/1999/xhtml');
+        });
+      });
+      return { svg: outer, width: exportW, height: exportH };
+    }
+
+    function svgStringToPngBlob(svgString, w, h, scale) {
+      return new Promise(function(resolve, reject) {
+        var blob = new Blob([svgString], { type: 'image/svg+xml;charset=utf-8' });
+        var url = URL.createObjectURL(blob);
+        var img = new Image();
+        img.onload = function() {
+          var canvas = document.createElement('canvas');
+          canvas.width = Math.ceil(w * scale);
+          canvas.height = Math.ceil(h * scale);
+          var ctx = canvas.getContext('2d');
+          ctx.setTransform(scale, 0, 0, scale, 0, 0);
+          ctx.drawImage(img, 0, 0, w, h);
+          URL.revokeObjectURL(url);
+          canvas.toBlob(function(b) {
+            if (b) resolve(b);
+            else reject(new Error('PNG 生成失败'));
+          }, 'image/png');
+        };
+        img.onerror = function() {
+          URL.revokeObjectURL(url);
+          reject(new Error('SVG 转图片失败'));
+        };
+        img.src = url;
+      });
+    }
+
+    async function downloadMermaidBlockPng(block, filename) {
+      var svg = block.querySelector('svg');
+      if (!svg) { showToast('流程图尚未渲染完成'); return; }
+      var built = buildExportSvg(svg, block);
+      var svgString = new XMLSerializer().serializeToString(built.svg);
+      var pngBlob = await svgStringToPngBlob(svgString, built.width, built.height, 2);
+      var url = URL.createObjectURL(pngBlob);
+      var a = document.createElement('a');
+      a.href = url;
+      a.download = filename;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      URL.revokeObjectURL(url);
+    }
+
+    function bindMermaidDownloadButton(block, index, titleCounts) {
+      var old = block.querySelector('.mermaid-btn-download');
+      if (old) old.remove();
+      var title = getNearestHeadingTitle(block);
+      var filename = uniquePngFilename(title, index, titleCounts);
+      var btn = document.createElement('button');
+      btn.type = 'button';
+      btn.className = 'mermaid-btn-download';
+      btn.title = '下载 PNG（' + filename.replace(/\.png$/i, '') + '）';
+      btn.setAttribute('aria-label', '下载流程图 PNG');
+      btn.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>';
+      btn.addEventListener('click', function(e) {
+        e.preventDefault();
+        e.stopPropagation();
+        if (btn.disabled) return;
+        btn.disabled = true;
+        downloadMermaidBlockPng(block, filename)
+          .then(function() { showToast('已下载：' + filename); })
+          .catch(function(err) {
+            console.error(err);
+            showToast(err.message || '下载失败，请稍后重试');
+          })
+          .finally(function() { btn.disabled = false; });
+      });
+      block.appendChild(btn);
+    }
+
+    function ensureSvgWhiteBackground(svg) {
+      if (!svg) return;
+      svg.style.background = '#ffffff';
+      var rects = svg.querySelectorAll('rect');
+      for (var i = 0; i < rects.length; i++) {
+        var rect = rects[i];
+        var rw = parseFloat(rect.getAttribute('width') || 0);
+        var rh = parseFloat(rect.getAttribute('height') || 0);
+        var svgW = svg.viewBox && svg.viewBox.baseVal ? svg.viewBox.baseVal.width : parseFloat(svg.getAttribute('width') || 0);
+        var svgH = svg.viewBox && svg.viewBox.baseVal ? svg.viewBox.baseVal.height : parseFloat(svg.getAttribute('height') || 0);
+        if (rw >= svgW * 0.9 && rh >= svgH * 0.9) {
+          rect.setAttribute('fill', '#ffffff');
+          rect.style.fill = '#ffffff';
+        }
+      }
+    }
+
+    function syncForeignObjectLayout(srcSvg, dstSvg) {
+      var srcFOs = srcSvg.querySelectorAll('foreignObject');
+      var dstFOs = dstSvg.querySelectorAll('foreignObject');
+      for (var i = 0; i < Math.min(srcFOs.length, dstFOs.length); i++) {
+        ['x', 'y', 'width', 'height'].forEach(function(attr) {
+          if (srcFOs[i].hasAttribute(attr)) dstFOs[i].setAttribute(attr, srcFOs[i].getAttribute(attr));
+        });
+        dstFOs[i].style.overflow = 'visible';
+        var srcInner = srcFOs[i].querySelector('div, span');
+        var dstInner = dstFOs[i].querySelector('div, span');
+        if (dstInner) {
+          dstInner.style.display = 'flex';
+          dstInner.style.alignItems = 'center';
+          dstInner.style.justifyContent = 'center';
+          dstInner.style.width = '100%';
+          dstInner.style.height = '100%';
+          dstInner.style.boxSizing = 'border-box';
+          dstInner.style.overflow = 'visible';
+          if (srcInner) {
+            var cs = window.getComputedStyle(srcInner);
+            if (cs.padding) dstInner.style.padding = cs.padding;
+          }
+        }
+        dstFOs[i].querySelectorAll('.nodeLabel, .edgeLabel, span, p').forEach(function(el) {
+          el.style.display = 'flex';
+          el.style.alignItems = 'center';
+          el.style.justifyContent = 'center';
+          el.style.width = '100%';
+          el.style.height = '100%';
+          el.style.textAlign = 'center';
+          el.style.margin = '0';
+          el.style.boxSizing = 'border-box';
+          el.style.lineHeight = '1.35';
+        });
+      }
+      var srcTexts = srcSvg.querySelectorAll('text, tspan');
+      var dstTexts = dstSvg.querySelectorAll('text, tspan');
+      for (var j = 0; j < Math.min(srcTexts.length, dstTexts.length); j++) {
+        ['x', 'y', 'dx', 'dy', 'text-anchor', 'dominant-baseline'].forEach(function(attr) {
+          if (srcTexts[j].hasAttribute(attr)) dstTexts[j].setAttribute(attr, srcTexts[j].getAttribute(attr));
+        });
+        if (!dstTexts[j].hasAttribute('dominant-baseline')) {
+          dstTexts[j].setAttribute('dominant-baseline', 'middle');
+        }
+      }
+    }
+
+    function getSvgLayoutSize(sourceSvg) {
+      var rect = sourceSvg.getBoundingClientRect();
+      var vb = sourceSvg.viewBox && sourceSvg.viewBox.baseVal;
+      if (vb && vb.width > 0 && vb.height > 0) {
+        return { w: vb.width, h: vb.height, viewBox: sourceSvg.getAttribute('viewBox') };
+      }
+      var attrW = parseFloat(sourceSvg.getAttribute('width'));
+      var attrH = parseFloat(sourceSvg.getAttribute('height'));
+      return {
+        w: attrW || rect.width || 800,
+        h: attrH || rect.height || 600,
+        viewBox: sourceSvg.getAttribute('viewBox') || ('0 0 ' + (attrW || rect.width || 800) + ' ' + (attrH || rect.height || 600))
+      };
+    }
+
+    function cloneSvgForLightbox(sourceSvg, block) {
+      const layout = getSvgLayoutSize(sourceSvg);
+      const w = layout.w;
+      const h = layout.h;
+      const wrap = document.createElement('div');
+      wrap.className = 'lightbox-diagram';
+      const clone = sourceSvg.cloneNode(true);
+      wrap.appendChild(clone);
+
+      const oldId = sourceSvg.id || '';
+      const newId = oldId ? ('lightbox-' + oldId + '-' + Date.now()) : ('lightbox-mermaid-' + Date.now());
+      clone.id = newId;
+      if (oldId) remapMermaidStyles(wrap, oldId, newId);
+
+      syncInlineStyles(sourceSvg, clone);
+      syncForeignObjectLayout(sourceSvg, clone);
+      clone.querySelectorAll('[clip-path]').forEach(function(el) { el.removeAttribute('clip-path'); });
+
+      if (layout.viewBox) clone.setAttribute('viewBox', layout.viewBox);
+      clone.setAttribute('width', String(w));
+      clone.setAttribute('height', String(h));
+      clone.setAttribute('preserveAspectRatio', 'xMidYMid meet');
+      clone.style.display = 'block';
+      clone.style.width = w + 'px';
+      clone.style.height = h + 'px';
+      clone.style.maxWidth = 'none';
+      clone.style.overflow = 'visible';
+
+      const bg = getDiagramBackground(sourceSvg, block);
+      wrap.style.background = bg;
+      wrap.style.display = 'inline-block';
+      wrap.style.lineHeight = '0';
+      wrap.style.overflow = 'visible';
+
+      return { clone: wrap, w: w, h: h, bg: bg };
+    }
+
+    function applyZoomTransform() {
+      els.lightboxStage.style.transform = 'translate(' + zoomState.x + 'px,' + zoomState.y + 'px) scale(' + zoomState.scale + ')';
+      els.lightboxZoom.textContent = Math.round(zoomState.scale * 100) + '%';
+    }
+
+    function fitDiagramToViewport() {
+      const svg = els.lightboxStage.querySelector('svg');
+      if (!svg) return;
+      const fallbackW = parseFloat(els.lightboxStage.dataset.nw) || 800;
+      const fallbackH = parseFloat(els.lightboxStage.dataset.nh) || 600;
+      let bbox = { x: 0, y: 0, width: fallbackW, height: fallbackH };
+      try {
+        var root = svg.querySelector('g.root') || svg.firstElementChild || svg;
+        bbox = root.getBBox();
+      } catch (e) {
+        try { bbox = svg.getBBox(); } catch (e2) { /* ignore */ }
+      }
+      const w = Math.max(bbox.width || fallbackW, 1);
+      const h = Math.max(bbox.height || fallbackH, 1);
+      const pad = 24;
+      const vw = els.lightboxViewport.clientWidth || window.innerWidth * 0.9;
+      const vh = els.lightboxViewport.clientHeight || window.innerHeight * 0.7;
+      if (vw < 10 || vh < 10) {
+        requestAnimationFrame(fitDiagramToViewport);
+        return;
+      }
+      let scale = Math.min((vw - pad) / w, (vh - pad) / h);
+      if (w <= vw - pad && h <= vh - pad) scale = Math.min(scale, 1);
+      else scale = Math.min(scale, 1);
+      scale = Math.max(0.1, scale);
+      zoomState.scale = scale;
+      zoomState.x = (vw - w * scale) / 2 - bbox.x * scale;
+      zoomState.y = (vh - h * scale) / 2 - bbox.y * scale;
+      applyZoomTransform();
+    }
+
+    function setLightboxZoom(nextScale, anchorX, anchorY) {
+      const min = 0.1, max = 6;
+      const scale = Math.min(max, Math.max(min, nextScale));
+      zoomState.x = anchorX - (anchorX - zoomState.x) * (scale / zoomState.scale);
+      zoomState.y = anchorY - (anchorY - zoomState.y) * (scale / zoomState.scale);
+      zoomState.scale = scale;
+      applyZoomTransform();
+    }
+
+    function lockPageScroll(locked) {
+      document.body.classList.toggle('lightbox-open', locked);
+    }
+
+    function openLightbox(block) {
+      const svg = block.querySelector('svg');
+      if (!svg) { showToast('\u6d41\u7a0b\u56fe\u5c1a\u672a\u6e32\u67d3\u5b8c\u6210'); return; }
+      const { clone, w, h, bg } = cloneSvgForLightbox(svg, block);
+      els.lightboxStage.innerHTML = '';
+      els.lightboxStage.dataset.nw = String(w);
+      els.lightboxStage.dataset.nh = String(h);
+      els.lightboxStage.appendChild(clone);
+      els.lightboxViewport.style.background = bg;
+      zoomState.scale = 1;
+      zoomState.x = 0;
+      zoomState.y = 0;
+      els.lightbox.classList.add('open');
+      lockPageScroll(true);
+      els.lightbox.offsetHeight;
+      fitDiagramToViewport();
+    }
+
+    function closeLightbox() {
+      els.lightbox.classList.remove('open');
+      els.lightboxStage.innerHTML = '';
+      els.lightboxViewport.style.background = '';
+      zoomState.scale = 1; zoomState.x = 0; zoomState.y = 0;
+      panState = null;
+      els.lightboxViewport.classList.remove('grabbing');
+      lockPageScroll(false);
+    }
+
+    function onLightboxWheel(e) {
+      if (!els.lightbox.classList.contains('open')) return;
+      e.preventDefault();
+      e.stopPropagation();
+      const rect = els.lightboxViewport.getBoundingClientRect();
+      const anchorX = e.clientX - rect.left;
+      const anchorY = e.clientY - rect.top;
+      const factor = e.deltaY < 0 ? 1.12 : 0.89;
+      setLightboxZoom(zoomState.scale * factor, anchorX, anchorY);
+    }
+
+    function onPanStart(e) {
+      if (!els.lightbox.classList.contains('open') || e.button !== 0) return;
+      e.preventDefault();
+      panState = { x: e.clientX, y: e.clientY, ox: zoomState.x, oy: zoomState.y };
+      els.lightboxViewport.classList.add('grabbing');
+    }
+    function onPanMove(e) {
+      if (!panState) return;
+      e.preventDefault();
+      zoomState.x = panState.ox + (e.clientX - panState.x);
+      zoomState.y = panState.oy + (e.clientY - panState.y);
+      applyZoomTransform();
+    }
+    function onPanEnd() {
+      panState = null;
+      els.lightboxViewport.classList.remove('grabbing');
+    }
+
+    els.lightboxViewport.addEventListener('wheel', onLightboxWheel, { passive: false });
+    els.lightbox.addEventListener('wheel', e => { if (els.lightbox.classList.contains('open')) { e.preventDefault(); e.stopPropagation(); } }, { passive: false });
+    els.lightboxViewport.addEventListener('mousedown', onPanStart);
+    window.addEventListener('mousemove', onPanMove);
+    window.addEventListener('mouseup', onPanEnd);
+    els.lightboxViewport.addEventListener('dblclick', e => {
+      e.preventDefault();
+      const rect = els.lightboxViewport.getBoundingClientRect();
+      setLightboxZoom(zoomState.scale < 1.5 ? 2 : 1, e.clientX - rect.left, e.clientY - rect.top);
+      if (zoomState.scale === 1) fitDiagramToViewport();
+    });
+
+    function isNotReadableError(err) {
+      if (!err) return false;
+      return err.name === 'NotReadableError' ||
+        (typeof err.message === 'string' && /could not be read|permission problems/i.test(err.message));
+    }
+
+    /** 从 FileSystemFileHandle 读取；外部保存后偶发锁文件，短暂重试 */
+    async function readFromHandle(handle, retries) {
+      retries = retries == null ? 3 : retries;
+      var lastErr;
+      for (var attempt = 0; attempt < retries; attempt++) {
+        try {
+          var file = await handle.getFile();
+          return { text: await file.text(), name: file.name };
+        } catch (e) {
+          lastErr = e;
+          if (!isNotReadableError(e) || attempt >= retries - 1) throw e;
+          await new Promise(function (r) { setTimeout(r, 180 * (attempt + 1)); });
+        }
+      }
+      throw lastErr;
+    }
+
+    async function loadCurrentContent() {
+      if (state.sourceType === 'handle' && state.fileHandle) return readFromHandle(state.fileHandle);
+      if (state.sourceType === 'file' && state.file) {
+        try {
+          return { text: await state.file.text(), name: state.file.name };
+        } catch (e) {
+          if (isNotReadableError(e)) {
+            throw new Error('文档已在外部更新，当前浏览器无法再次读取该文件引用，请重新选择同一文件');
+          }
+          throw e;
+        }
+      }
+      if (state.sourceType === 'url' && state.url) {
+        const bust = state.url.includes('?') ? '&' : '?';
+        const res = await fetch(state.url + bust + '_t=' + Date.now(), { cache: 'no-store' });
+        if (!res.ok) throw new Error('\u52a0\u8f7d\u5931\u8d25 (' + res.status + ')');
+        return { text: await res.text(), name: state.displayName || state.url };
+      }
+      throw new Error('\u6ca1\u6709\u53ef\u5237\u65b0\u7684\u6587\u6863');
+    }
+    function buildTocTree(headings) {
+      if (!headings.length) return '<div class="toc-empty">\u672c\u6587\u6863\u6682\u65e0\u6807\u9898\uff0c\u65e0\u6cd5\u751f\u6210\u76ee\u5f55\u3002</div>';
+      const root = { level: 0, children: [] }, stack = [root];
+      headings.forEach(h => { const node = { ...h, children: [] }; while (stack.length > 1 && stack.at(-1).level >= h.level) stack.pop(); stack.at(-1).children.push(node); stack.push(node); });
+      function renderNodes(nodes) {
+        if (!nodes.length) return '';
+        return '<ul class="toc-list">' + nodes.map(n => '<li class="toc-item" data-level="' + n.level + '"><a href="#' + n.id + '" data-target="' + n.id + '">' + n.text + '</a>' + renderNodes(n.children) + '</li>').join('') + '</ul>';
+      }
+      return renderNodes(root.children);
+    }
+    function collectHeadings(c) { return [...c.querySelectorAll('h1,h2,h3,h4,h5,h6')].map(el => ({ level: +el.tagName[1], id: el.id, text: el.textContent.trim() })); }
+    function bindTocLinks() {
+      els.toc.querySelectorAll('a[data-target]').forEach(link => link.addEventListener('click', e => {
+        e.preventDefault(); const t = document.getElementById(link.dataset.target);
+        if (t) { t.scrollIntoView({ behavior: 'smooth', block: 'start' }); history.replaceState(null, '', '#' + link.dataset.target); }
+        els.sidebar.classList.remove('open');
+      }));
+    }
+    function setupScrollSpy(headings) {
+      const links = els.toc.querySelectorAll('a[data-target]'); if (!links.length) return;
+      const obs = new IntersectionObserver(entries => entries.forEach(en => {
+        if (en.isIntersecting) links.forEach(a => a.classList.toggle('active', a.dataset.target === en.target.id));
+      }), { root: els.contentWrap, rootMargin: '-20% 0px -70% 0px', threshold: 0 });
+      headings.forEach(h => { const el = document.getElementById(h.id); if (el) obs.observe(el); });
+    }
+    async function renderMermaid() {
+      const blocks = els.markdownBody.querySelectorAll('pre.mermaid'); if (!blocks.length) return;
+      try {
+        await withTimeout(
+          mermaid.run({ nodes: Array.from(blocks) }),
+          60000,
+          '\u6d41\u7a0b\u56fe\u6e32\u67d3\u8d85\u65f6\uff0c\u5df2\u8df3\u8fc7\u90e8\u5206\u56fe\u8868'
+        );
+      } catch (e) { console.error(e); showToast(e.message || '\u90e8\u5206\u6d41\u7a0b\u56fe\u6e32\u67d3\u5931\u8d25'); }
+      els.markdownBody.querySelectorAll('.mermaid-block svg').forEach(ensureSvgWhiteBackground);
+      const lintMsgs = [];
+      const titleCounts = {};
+      els.markdownBody.querySelectorAll('.mermaid-block[data-zoomable]').forEach(function(block, i) {
+        const msg = lintMermaidFlowchart(block, i);
+        if (msg) lintMsgs.push(msg);
+        bindMermaidDownloadButton(block, i, titleCounts);
+        block.addEventListener('click', function(e) {
+          if (e.target.closest('.mermaid-btn-download')) return;
+          openLightbox(block);
+        });
+        block.addEventListener('keydown', e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); openLightbox(block); } });
+      });
+      if (lintMsgs.length) showToast(lintMsgs[0] + (lintMsgs.length > 1 ? ' 等' : ''));
+    }
+
+    function toggleMermaidGuide(open) {
+      const on = open !== undefined ? open : !els.mermaidGuide.classList.contains('open');
+      els.mermaidGuide.classList.toggle('open', on);
+    }
+
+    async function copyFlowchartTemplate() {
+      const wrapped = '```mermaid\n' + FLOWCHART_TEMPLATE + '\n```';
+      try {
+        await navigator.clipboard.writeText(wrapped);
+        showToast('已复制 Mermaid flowchart 模板（含 init / classDef / linkStyle）');
+      } catch (e) {
+        showToast('复制失败，请从「流程图规范」面板手动复制');
+      }
+    }
+    async function renderMarkdown(text) {
+      state.headingCounter = 0; els.welcome.hidden = true; els.markdownBody.hidden = false;
+      els.markdownBody.innerHTML = marked.parse(text);
+      const headings = collectHeadings(els.markdownBody);
+      els.toc.innerHTML = buildTocTree(headings); bindTocLinks(); setupScrollSpy(headings);
+      await renderMermaid();
+    }
+    async function openDocument(data) {
+      setLoading(true);
+      try { await renderMarkdown(data.text); setSourceReady(data.name); showToast('\u5df2\u52a0\u8f7d\uff1a' + data.name); }
+      catch (e) { console.error(e); showToast(e.message || '\u6e32\u67d3\u5931\u8d25'); }
+      finally { setLoading(false); }
+    }
+    async function refreshDocument() {
+      if (!state.sourceType) { showToast('\u8bf7\u5148\u6253\u5f00\u4e00\u4e2a Markdown \u6587\u4ef6'); return; }
+      setLoading(true);
+      try {
+        var data = await loadCurrentContent();
+        await renderMarkdown(data.text);
+        setSourceReady(data.name);
+        showToast('\u6587\u6863\u5df2\u5237\u65b0');
+      } catch (e) {
+        console.error(e);
+        if (state.sourceType === 'handle' && state.fileHandle && isNotReadableError(e)) {
+          try {
+            var perm = await state.fileHandle.requestPermission({ mode: 'read' });
+            if (perm === 'granted') {
+              var retryData = await readFromHandle(state.fileHandle);
+              await renderMarkdown(retryData.text);
+              setSourceReady(retryData.name);
+              showToast('\u6587\u6863\u5df2\u5237\u65b0');
+              return;
+            }
+          } catch (e2) { console.error(e2); }
+        }
+        var msg = e.message || '\u5237\u65b0\u5931\u8d25';
+        showToast(msg);
+        if (isNotReadableError(e) || /请重新选择/.test(msg)) {
+          showToast(msg + '，请重新选择文件');
+          setLoading(false);
+          await openFilePicker();
+          return;
+        }
+      } finally { setLoading(false); }
+    }
+
+  var MD_FILE_TYPES = [{ description: 'Markdown', accept: { 'text/markdown': ['.md', '.markdown'] } }];
+
+    /** 优先 File System Access API，刷新时可重新读取磁盘上的最新内容 */
+    async function openFilePicker() {
+      if (window.showOpenFilePicker) {
+        try {
+          var handles = await window.showOpenFilePicker({
+            types: MD_FILE_TYPES,
+            multiple: false
+          });
+          var handle = handles[0];
+          state.sourceType = 'handle';
+          state.fileHandle = handle;
+          state.file = null;
+          state.url = null;
+          var data = await readFromHandle(handle);
+          await openDocument(data);
+          return;
+        } catch (e) {
+          if (e && e.name === 'AbortError') return;
+          console.warn('[md-viewer] showOpenFilePicker failed, fallback to input', e);
+        }
+      }
+      els.fileInput.value = '';
+      els.fileInput.click();
+    }
+
+    function pickFile() { openFilePicker(); }
+    async function handleFileInput(file) {
+      if (!file) return;
+      state.sourceType = 'file'; state.file = file; state.fileHandle = null; state.url = null; state.displayName = file.name;
+      await openDocument({ text: await file.text(), name: file.name });
+    }
+    async function loadFromUrl(url, displayName) {
+      state.sourceType = 'url'; state.url = url; state.file = null; state.fileHandle = null; state.displayName = displayName || url;
+      await openDocument(await loadCurrentContent());
+    }
+    els.btnOpen.addEventListener('click', pickFile);
+    els.btnOpenWelcome.addEventListener('click', pickFile);
+    els.btnRefresh.addEventListener('click', refreshDocument);
+    els.fileInput.addEventListener('change', e => handleFileInput(e.target.files[0]));
+    els.lightbox.addEventListener('click', e => { if (e.target === els.lightbox) closeLightbox(); });
+    els.lightboxInner.addEventListener('click', e => e.stopPropagation());
+    els.lightboxClose.addEventListener('click', closeLightbox);
+    document.addEventListener('keydown', e => {
+      if (e.key !== 'Escape') return;
+      if (els.mermaidGuide.classList.contains('open')) toggleMermaidGuide(false);
+      else if (els.lightbox.classList.contains('open')) closeLightbox();
+    });
+    document.addEventListener('dragover', e => { e.preventDefault(); e.dataTransfer.dropEffect = 'copy'; });
+    document.addEventListener('drop', e => {
+      e.preventDefault(); const file = e.dataTransfer.files[0];
+      if (file && /\.(md|markdown)$/i.test(file.name)) handleFileInput(file);
+      else showToast('\u8bf7\u62d6\u5165 .md \u6216 .markdown \u6587\u4ef6');
+    });
+    els.btnTocToggle.addEventListener('click', () => els.sidebar.classList.toggle('open'));
+    els.btnMermaidGuide.addEventListener('click', () => toggleMermaidGuide(true));
+    els.btnGuideClose.addEventListener('click', () => toggleMermaidGuide(false));
+    els.btnCopyPreset.addEventListener('click', copyFlowchartTemplate);
+    function checkMobileToc() { els.btnTocToggle.style.display = window.innerWidth <= 768 ? 'inline-flex' : 'none'; if (window.innerWidth > 768) els.sidebar.classList.remove('open'); }
+    window.addEventListener('resize', checkMobileToc); checkMobileToc();
+    const urlParam = new URLSearchParams(location.search).get('url') || new URLSearchParams(location.search).get('file');
+    if (urlParam) loadFromUrl(urlParam, urlParam.split('/').pop()).catch(e => { console.error(e); showToast('\u65e0\u6cd5\u4ece URL \u52a0\u8f7d\u6587\u6863'); });
+})();
+  </script>
+</body>
+</html>
